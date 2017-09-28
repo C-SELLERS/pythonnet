@@ -611,6 +611,20 @@ class GMT(tzinfo):
                 }
             }
 
+            var opImplicit = obType.GetMethod("op_Implicit", new[] { obType });
+            if (opImplicit != null)
+            {
+                if (ToManagedValue(value, opImplicit.ReturnType, out result, setError))
+                {
+                    opImplicit = obType.GetMethod("op_Implicit", new[] { result.GetType() });
+                    if (opImplicit != null)
+                    {
+                        result = opImplicit.Invoke(null, new[] { result });
+                    }
+                    return opImplicit != null;
+                }
+            }
+
             return ToPrimitive(value, obType, out result, setError);
         }
 
