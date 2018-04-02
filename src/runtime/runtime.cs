@@ -275,6 +275,15 @@ namespace Python.Runtime
                 () => PyFloatType = IntPtr.Zero);
             XDecref(op);
 
+            IntPtr decimalMod = PyImport_ImportModule("decimal");
+            IntPtr decimalCtor = PyObject_GetAttrString(decimalMod, "Decimal");
+            op = PyObject_CallObject(decimalCtor, IntPtr.Zero);
+            PyDecimalType = PyObject_Type(op);
+            XDecref(op);
+            XDecref(decimalMod);
+            XDecref(decimalCtor);
+
+#if PYTHON3
             PyClassType = IntPtr.Zero;
             PyInstanceType = IntPtr.Zero;
 
@@ -562,6 +571,7 @@ namespace Python.Runtime
         internal static IntPtr PyBoolType;
         internal static IntPtr PyNoneType;
         internal static IntPtr PyTypeType;
+        internal static IntPtr PyDecimalType;
 
         internal static IntPtr Py_NoSiteFlag;
 
@@ -1948,7 +1958,7 @@ namespace Python.Runtime
         }
 
         /// <summary>
-        /// Generic handler for the tp_new slot of a type object. Create a new instance using the type’s tp_alloc slot.
+        /// Generic handler for the tp_new slot of a type object. Create a new instance using the type�s tp_alloc slot.
         /// </summary>
         [DllImport(_PythonDll, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr PyType_GenericNew(IntPtr type, IntPtr args, IntPtr kwds);
@@ -1962,7 +1972,7 @@ namespace Python.Runtime
         private static extern IntPtr PyType_GenericAlloc(IntPtr type, IntPtr n);
 
         /// <summary>
-        /// Finalize a type object. This should be called on all type objects to finish their initialization. This function is responsible for adding inherited slots from a type’s base class. Return 0 on success, or return -1 and sets an exception on error.
+        /// Finalize a type object. This should be called on all type objects to finish their initialization. This function is responsible for adding inherited slots from a type�s base class. Return 0 on success, or return -1 and sets an exception on error.
         /// </summary>
         [DllImport(_PythonDll, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int PyType_Ready(IntPtr type);
@@ -2038,7 +2048,7 @@ namespace Python.Runtime
         internal static extern int PyErr_GivenExceptionMatches(IntPtr ob, IntPtr val);
 
         /// <summary>
-        /// Under certain circumstances, the values returned by PyErr_Fetch() below can be “unnormalized”,
+        /// Under certain circumstances, the values returned by PyErr_Fetch() below can be �unnormalized�,
         /// meaning that *exc is a class object but *val is not an instance of the same class.
         /// This function can be used to instantiate the class in that case.
         /// If the values are already normalized, nothing happens.
