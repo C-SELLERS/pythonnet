@@ -131,6 +131,7 @@ This version improves performance on benchmarks significantly compared to 2.3.
 -   Added support for C# types to provide `__repr__` ([#680][p680])
 
 ### Changed
+-   PythonException included C# call stack
 
 -   PythonException included C# call stack
 -   Reattach python exception traceback information (#545)
