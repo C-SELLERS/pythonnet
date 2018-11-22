@@ -219,6 +219,38 @@ namespace Python.EmbeddingTest
             }
         }
 
+        [Test]
+        public void ValidateRefCount()
+        {
+            if (!Finalizer.Instance.RefCountValidationEnabled)
+            {
+                Assert.Pass("Only run with FINALIZER_CHECK");
+            }
+            IntPtr ptr = IntPtr.Zero;
+            bool called = false;
+            Finalizer.IncorrectRefCntHandler handler = (s, e) =>
+            {
+                called = true;
+                Assert.AreEqual(ptr, e.Handle);
+                Assert.AreEqual(2, e.ImpactedObjects.Count);
+                // Fix for this test, don't do this on general environment
+                Runtime.Runtime.XIncref(e.Handle);
+                return false;
+            };
+            Finalizer.Instance.IncorrectRefCntResovler += handler;
+            try
+            {
+                ptr = CreateStringGarbage();
+                FullGCCollect();
+                Assert.Throws<Finalizer.IncorrectRefCountException>(() => Finalizer.Instance.Collect());
+                Assert.IsTrue(called);
+            }
+            finally
+            {
+                Finalizer.Instance.IncorrectRefCntResovler -= handler;
+            }
+        }
+
         [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)] // ensure lack of references to s1 and s2
         private static IntPtr CreateStringGarbage()
         {
@@ -227,5 +259,6 @@ namespace Python.EmbeddingTest
             PyString s2 = new PyString(s1.Handle);
             return s1.Handle;
         }
+
     }
 }

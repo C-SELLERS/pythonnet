@@ -8,7 +8,7 @@ namespace Python.Runtime
     /// Provides a managed interface to exceptions thrown by the Python
     /// runtime.
     /// </summary>
-    public class PythonException : System.Exception, IDisposable
+    public class PythonException : System.Exception, IPyDisposable
     {
         private IntPtr _pyType = IntPtr.Zero;
         private IntPtr _pyValue = IntPtr.Zero;
@@ -260,6 +260,11 @@ namespace Python.Runtime
                 GC.SuppressFinalize(this);
                 disposed = true;
             }
+        }
+
+        public IntPtr[] GetTrackedHandles()
+        {
+            return new IntPtr[] { _pyType, _pyValue, _pyTB };
         }
 
         /// <summary>

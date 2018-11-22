@@ -8,6 +8,11 @@ using System.Linq.Expressions;
 
 namespace Python.Runtime
 {
+    public interface IPyDisposable : IDisposable
+    {
+        IntPtr[] GetTrackedHandles();
+    }
+
     /// <summary>
     /// Represents a generic Python object. The methods of this class are
     /// generally equivalent to the Python "abstract object API". See
@@ -234,6 +239,11 @@ namespace Python.Runtime
                 disposed = true;
             }
             GC.SuppressFinalize(this);
+        }
+
+        public IntPtr[] GetTrackedHandles()
+        {
+            return new IntPtr[] { obj };
         }
 
         /// <summary>
