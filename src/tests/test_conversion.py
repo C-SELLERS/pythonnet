@@ -1,4 +1,4 @@
-"""Test CLR <-> Python type conversions."""
+﻿"""Test CLR <-> Python type conversions."""
 
 import operator
 import pytest
@@ -8,6 +8,7 @@ from Python.Test import ConversionTest, UnicodeString
 from Python.Runtime import PyObjectConversions
 from Python.Runtime.Codecs import RawProxyEncoder
 
+from ._compat import indexbytes, long, unichr
 
 def test_bool_conversion():
     """Test bool conversion."""

@@ -280,10 +280,7 @@ namespace Python.Runtime
             var pe = e as PythonException;
             if (pe != null)
             {
-                Runtime.XIncref(pe.PyType);
-                Runtime.XIncref(pe.PyValue);
-                Runtime.XIncref(pe.PyTB);
-                Runtime.PyErr_Restore(pe.PyType, pe.PyValue, pe.PyTB);
+                Runtime.PyErr_SetObject(pe.PyType, pe.PyValue);
                 return;
             }
 
@@ -317,7 +314,7 @@ namespace Python.Runtime
         /// </remarks>
         public static bool ErrorOccurred()
         {
-            return Runtime.PyErr_Occurred() != IntPtr.Zero;
+            return Runtime.PyErr_Occurred() != 0;
         }
 
         /// <summary>

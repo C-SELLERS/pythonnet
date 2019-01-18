@@ -1,7 +1,6 @@
 using System.Linq;
 using System;
 using System.Collections.Generic;
-using System.Resources;
 
 namespace Python.Runtime
 {
@@ -15,6 +14,15 @@ namespace Python.Runtime
         /// Maps namespace -> generic base name -> list of generic type names
         /// </summary>
         private static Dictionary<string, Dictionary<string, List<string>>> mapping;
+
+        private GenericUtil()
+        {
+        }
+
+        static GenericUtil()
+        {
+            mapping = new Dictionary<string, Dictionary<string, List<string>>>();
+        }
 
         public static void Reset()
         {

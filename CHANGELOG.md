@@ -114,13 +114,11 @@ This version improves performance on benchmarks significantly compared to 2.3.
 ## [2.4.0][] - 2019-05-15
 
 ### Added
-
 -   Added support for embedding python into dotnet core 2.0 (NetStandard 2.0)
 -   Added new build system (pythonnet.15.sln) based on dotnetcore-sdk/xplat(crossplatform msbuild).
     Currently there two side-by-side build systems that produces the same output (net40) from the same sources.
     After a some transition time, current (mono/ msbuild 14.0) build system will be removed.
 -   NUnit upgraded to 3.7 (eliminates travis-ci random bug)
--   Added C# `PythonEngine.AddShutdownHandler` to help client code clean up on shutdown.
 -   Added `clr.GetClrType` ([#432][i432])([#433][p433])
 -   Allowed passing `None` for nullable args ([#460][p460])
 -   Added keyword arguments based on C# syntax for calling CPython methods ([#461][p461])
@@ -143,12 +141,7 @@ This version improves performance on benchmarks significantly compared to 2.3.
 
 ### Fixed
 
--   Fixed secondary PythonEngine.Initialize call, all sensitive static variables now reseted.
-    This is a hidden bug. Once python cleaning up enough memory, objects from previous engine run becomes corrupted. ([#534][p534])
 -   Fixed Visual Studio 2017 compat ([#434][i434]) for setup.py
--   Fixed crashes when integrating pythonnet in Unity3d ([#714][i714]),
-    related to unloading the Application Domain
--   Fixed interop methods with Py_ssize_t. NetCoreApp 2.0 is more sensitive than net40 and requires this fix. ([#531][p531])
 -   Fixed crash on exit of the Python interpreter if a python class
     derived from a .NET class has a `__namespace__` or `__assembly__`
     attribute ([#481][i481])
@@ -160,8 +153,6 @@ This version improves performance on benchmarks significantly compared to 2.3.
 -   Fixed errors breaking .NET Remoting on method invoke ([#276][i276])
 -   Fixed PyObject.GetHashCode ([#676][i676])
 -   Fix memory leaks due to spurious handle incrementation ([#691][i691])
--   Fix spurious assembly loading exceptions from private types ([#703][i703])
--   Fix inheritance of non-abstract base methods ([#755][i755])
 
 
 ## [2.3.0][] - 2017-03-11
@@ -719,7 +710,6 @@ This version improves performance on benchmarks significantly compared to 2.3.
 
 [1.0.0]: https://github.com/pythonnet/pythonnet/releases/tag/1.0
 
-[i714]: https://github.com/pythonnet/pythonnet/issues/714
 [i608]: https://github.com/pythonnet/pythonnet/issues/608
 [i443]: https://github.com/pythonnet/pythonnet/issues/443
 [p690]: https://github.com/pythonnet/pythonnet/pull/690
@@ -810,7 +800,6 @@ This version improves performance on benchmarks significantly compared to 2.3.
 [p225]: https://github.com/pythonnet/pythonnet/pull/225
 [p78]: https://github.com/pythonnet/pythonnet/pull/78
 [p163]: https://github.com/pythonnet/pythonnet/pull/163
-[p625]: https://github.com/pythonnet/pythonnet/pull/625
 [i131]: https://github.com/pythonnet/pythonnet/issues/131
 [p531]: https://github.com/pythonnet/pythonnet/pull/531
 [i755]: https://github.com/pythonnet/pythonnet/pull/755

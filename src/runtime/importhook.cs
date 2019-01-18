@@ -208,7 +208,7 @@ namespace Python.Runtime
             // hook is saved as this.py_import. This version handles CLR
             // import and defers to the normal builtin for everything else.
 
-            var num_args = Runtime.PyTuple_Size(args);
+            int num_args = Runtime.PyTuple_Size(args);
             if (num_args < 1)
             {
                 return Exceptions.RaiseTypeError("__import__() takes at least 1 argument (0 given)");
@@ -257,31 +257,34 @@ namespace Python.Runtime
 
             string realname = mod_name;
             string clr_prefix = null;
-
-            // 2010-08-15: Always seemed smart to let python try first...
-            // This shaves off a few tenths of a second on test_module.py
-            // and works around a quirk where 'sys' is found by the
-            // LoadImplicit() deprecation logic.
-            // Turns out that the AssemblyManager.ResolveHandler() checks to see if any
-            // Assembly's FullName.ToLower().StartsWith(name.ToLower()), which makes very
-            // little sense to me.
-            IntPtr res = Runtime.PyObject_Call(py_import, args, kw);
-            if (res != IntPtr.Zero)
+            if (mod_name.StartsWith("CLR."))
             {
-                // There was no error.
-                if (fromlist && IsLoadAll(fromList))
+                clr_prefix = "CLR."; // prepend when adding the module to sys.modules
+                realname = mod_name.Substring(4);
+                string msg = $"Importing from the CLR.* namespace is deprecated. Please import '{realname}' directly.";
+                Exceptions.deprecation(msg);
+            }
+            else
+            {
+                // 2010-08-15: Always seemed smart to let python try first...
+                // This shaves off a few tenths of a second on test_module.py
+                // and works around a quirk where 'sys' is found by the
+                // LoadImplicit() deprecation logic.
+                // Turns out that the AssemblyManager.ResolveHandler() checks to see if any
+                // Assembly's FullName.ToLower().StartsWith(name.ToLower()), which makes very
+                // little sense to me.
+                IntPtr res = Runtime.PyObject_Call(py_import, args, kw);
+                if (res != IntPtr.Zero)
                 {
-                    var mod = ManagedType.GetManagedObject(res) as ModuleObject;
-                    mod?.LoadNames();
+                    // There was no error.
+                    return res;
                 }
-                return res;
-            }
-            // There was an error
-            if (!Exceptions.ExceptionMatches(Exceptions.ImportError))
-            {
-                // and it was NOT an ImportError; bail out here.
-                return IntPtr.Zero;
-            }
+                // There was an error
+                if (!Exceptions.ExceptionMatches(Exceptions.ImportError))
+                {
+                    // and it was NOT an ImportError; bail out here.
+                    return IntPtr.Zero;
+                }
 
             if (mod_name == string.Empty)
             {
@@ -307,11 +310,6 @@ namespace Python.Runtime
             {
                 if (fromlist)
                 {
-                    if (IsLoadAll(fromList))
-                    {
-                        var mod = ManagedType.GetManagedObject(module) as ModuleObject;
-                        mod?.LoadNames();
-                    }
                     Runtime.XIncref(module);
                     return module;
                 }
@@ -367,33 +365,20 @@ namespace Python.Runtime
                 }
             }
 
-            {
-                var mod = fromlist ? tail : head;
+            ModuleObject mod = fromlist ? tail : head;
 
-                if (fromlist && IsLoadAll(fromList))
+            if (fromlist && Runtime.PySequence_Size(fromList) == 1)
+            {
+                IntPtr fp = Runtime.PySequence_GetItem(fromList, 0);
+                if (!CLRModule.preload && Runtime.GetManagedString(fp) == "*")
                 {
                     mod.LoadNames();
                 }
+                Runtime.XDecref(fp);
+            }
 
-                Runtime.XIncref(mod.pyHandle);
-                return mod.pyHandle;
-            }
-        }
-
-        private static bool IsLoadAll(IntPtr fromList)
-        {
-            if (CLRModule.preload)
-            {
-                return false;
-            }
-            if (Runtime.PySequence_Size(fromList) != 1)
-            {
-                return false;
-            }
-            IntPtr fp = Runtime.PySequence_GetItem(fromList, 0);
-            bool res = Runtime.GetManagedString(fp) == "*";
-            Runtime.XDecref(fp);
-            return res;
+            Runtime.XIncref(mod.pyHandle);
+            return mod.pyHandle;
         }
     }
 }

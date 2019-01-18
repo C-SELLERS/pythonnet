@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -625,10 +625,8 @@ namespace Python.Runtime
         /// </summary>
         internal static void InitializeSlots(IntPtr type, Type impl, SlotsHolder slotsHolder = null)
         {
-            // We work from the most-derived class up; make sure to get
-            // the most-derived slot and not to override it with a base
-            // class's slot.
-            var seen = new HashSet<string>();
+            var seen = new Hashtable(8);
+            Type offsetType = typeof(TypeOffset);
 
             while (impl != null)
             {
@@ -642,27 +640,17 @@ namespace Python.Runtime
                         continue;
                     }
 
-                    if (seen.Contains(name))
+                    if (seen[name] != null)
                     {
                         continue;
                     }
 
                     InitializeSlot(type, Interop.GetThunk(method), name, slotsHolder);
 
-                    seen.Add(name);
+                    seen[name] = 1;
                 }
 
                 impl = impl.BaseType;
-            }
-
-            foreach (string slot in _requiredSlots)
-            {
-                if (seen.Contains(slot))
-                {
-                    continue;
-                }
-                var offset = ManagedDataOffsets.GetSlotOffset(slot);
-                Marshal.WriteIntPtr(type, offset, SlotsHolder.GetDefaultSlot(offset));
             }
         }
 

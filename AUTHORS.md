@@ -33,7 +33,6 @@
 -   Daniel Fernandez ([@fdanny](https://github.com/fdanny))
 -   Daniel Santana ([@dgsantana](https://github.com/dgsantana))
 -   Dave Hirschfeld ([@dhirschfeld](https://github.com/dhirschfeld))
--   David Lassonde ([@lassond](https://github.com/lassond))
 -   David Lechner ([@dlech](https://github.com/dlech))
 -   Dmitriy Se ([@dmitriyse](https://github.com/dmitriyse))
 -   Félix Bourbonnais ([@BadSingleton](https://github.com/BadSingleton))

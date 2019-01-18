@@ -4,7 +4,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Threading;
 
@@ -32,7 +31,7 @@ namespace Python.Runtime
         private static ResolveEventHandler rhandler;
 
         // updated only under GIL?
-        private static Dictionary<string, int> probed = new Dictionary<string, int>(32);
+        private static Dictionary<string, int> probed;
 
         // modified from event handlers below, potentially triggered from different .NET threads
         private static ConcurrentQueue<Assembly> assemblies;
@@ -49,6 +48,9 @@ namespace Python.Runtime
         /// </summary>
         internal static void Initialize()
         {
+            namespaces = new ConcurrentDictionary<string, ConcurrentDictionary<Assembly, string>>();
+            probed = new Dictionary<string, int>(32);
+            //generics = new Dictionary<string, Dictionary<string, string>>();
             assemblies = new ConcurrentQueue<Assembly>();
             pypath = new List<string>(16);
 
@@ -267,7 +269,9 @@ namespace Python.Runtime
             // A couple of things we want to do here: first, we want to
             // gather a list of all of the namespaces contributed to by
             // the assembly.
-            foreach (Type t in GetTypes(assembly))
+
+            Type[] types = assembly.GetTypes();
+            foreach (Type t in types)
             {
                 string ns = t.Namespace ?? "";
                 if (!namespaces.ContainsKey(ns))
@@ -341,9 +345,10 @@ namespace Python.Runtime
             {
                 foreach (Assembly a in namespaces[nsname].Keys)
                 {
-                    foreach (Type t in GetTypes(a))
+                    Type[] types = a.GetTypes();
+                    foreach (Type t in types)
                     {
-                        if ((t.Namespace ?? "") == nsname && !t.IsNested)
+                        if ((t.Namespace ?? "") == nsname)
                         {
                             names.Add(t.Name);
                         }
