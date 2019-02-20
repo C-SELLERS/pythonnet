@@ -1,4 +1,5 @@
 using System;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Security.Permissions;
 
@@ -88,7 +89,6 @@ namespace Python.Runtime
             }
         }
 
-
         /// <summary>
         /// Descriptor __set__ implementation. This method sets the value of
         /// a property based on the given Python value. The Python value must
@@ -173,6 +173,50 @@ namespace Python.Runtime
         {
             var self = (PropertyObject)GetManagedObject(ob);
             return Runtime.PyString_FromString($"<property '{self.info}'>");
+        }
+
+        private static Func<object, object> BuildGetter(PropertyInfo propertyInfo)
+        {
+            var methodInfo = propertyInfo.GetGetMethod();
+            if (methodInfo == null)
+            {
+                // if the getter is not public 'GetGetMethod' will not find it
+                return null;
+            }
+            var obj = Expression.Parameter(typeof(object), "o");
+            // Require because we will know at runtime the declaring type
+            // so 'obj' is declared as typeof(object)
+            var instance = Expression.Convert(obj, methodInfo.DeclaringType);
+
+            var expressionCall = Expression.Call(instance, methodInfo);
+
+            return Expression.Lambda<Func<object, object>>(
+                Expression.Convert(expressionCall, typeof(object)),
+                obj).Compile();
+        }
+
+        private static Action<object, object> BuildSetter(PropertyInfo propertyInfo)
+        {
+            var methodInfo = propertyInfo.GetSetMethod();
+            if (methodInfo == null)
+            {
+                // if the setter is not public 'GetSetMethod' will not find it
+                return null;
+            }
+            var obj = Expression.Parameter(typeof(object), "o");
+            // Require because we will know at runtime the declaring type
+            // so 'obj' is declared as typeof(object)
+            var instance = Expression.Convert(obj, methodInfo.DeclaringType);
+
+            var value = Expression.Parameter(typeof(object));
+            var argument = Expression.Convert(value, methodInfo.GetParameters()[0].ParameterType);
+
+            var expressionCall = Expression.Call(instance, methodInfo, argument);
+
+            return Expression.Lambda<Action<object, object>>(
+                expressionCall,
+                obj,
+                value).Compile();
         }
     }
 }

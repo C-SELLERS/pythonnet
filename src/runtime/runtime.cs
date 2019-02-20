@@ -110,6 +110,10 @@ namespace Python.Runtime
     /// </summary>
     public class Runtime
     {
+        // C# compiler copies constants to the assemblies that references this library.
+        // We needs to replace all public constants to static readonly fields to allow
+        // binary substitution of different Python.Runtime.dll builds in a target application.
+
         public static int UCS => _UCS;
         internal static readonly int _UCS = PyUnicode_GetMax() <= 0xFFFF ? 2 : 4;
 
