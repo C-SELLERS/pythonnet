@@ -217,6 +217,7 @@ namespace Python.EmbeddingTest
             {
                 Finalizer.Instance.IncorrectRefCntResolver -= handler;
             }
+            Assert.AreEqual(errorMessage, "MyPyObject");
         }
 
         [Test]
