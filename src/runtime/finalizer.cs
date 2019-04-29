@@ -121,10 +121,8 @@ namespace Python.Runtime
             lock (_queueLock)
 #endif
             {
-                using (Py.GIL())
-                {
 #if FINALIZER_CHECK
-                    ValidateRefCount();
+                ValidateRefCount();
 #endif
                 IntPtr obj;
                 Runtime.PyErr_Fetch(out var errType, out var errVal, out var traceback);
