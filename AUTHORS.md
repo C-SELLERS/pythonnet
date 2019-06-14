@@ -62,6 +62,7 @@
 -   Simon Mourier ([@smourier](https://github.com/smourier))
 -   Tom Minka ([@tminka](https://github.com/tminka))
 -   Viktoria Kovescses ([@vkovec](https://github.com/vkovec))
+-   Victor Milovanov([@lostmsu](https://github.com/lostmsu))
 -   Ville M. Vainio ([@vivainio](https://github.com/vivainio))
 -   Virgil Dupras ([@hsoft](https://github.com/hsoft))
 -   Wenguang Yang ([@yagweb](https://github.com/yagweb))

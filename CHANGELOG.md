@@ -132,6 +132,7 @@ This version improves performance on benchmarks significantly compared to 2.3.
 
 ### Changed
 -   PythonException included C# call stack
+-   improved performance of calls from Python to C#
 
 -   PythonException included C# call stack
 -   Reattach python exception traceback information (#545)
