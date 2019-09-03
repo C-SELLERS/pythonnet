@@ -209,9 +209,10 @@ namespace Python.Runtime
                 //PythonEngine.Exec(code);
             }
 
-            // Load the clr.py resource into the clr module
-            IntPtr clr = Python.Runtime.ImportHook.GetCLRModule();
-            IntPtr clr_dict = Runtime.PyModule_GetDict(clr);
+                // Load the clr.py resource into the clr module
+                Console.WriteLine("PythonEngine.Initialize(): GetCLRModule()...");
+                IntPtr clr = Python.Runtime.ImportHook.GetCLRModule();
+                IntPtr clr_dict = Runtime.PyModule_GetDict(clr);
 
             var locals = new PyDict();
             try
@@ -221,14 +222,15 @@ namespace Python.Runtime
                 IntPtr builtins = Runtime.PyEval_GetBuiltins();
                 Runtime.PyDict_SetItemString(module_globals, "__builtins__", builtins);
 
-                Assembly assembly = Assembly.GetExecutingAssembly();
-                using (Stream stream = assembly.GetManifestResourceStream("clr.py"))
-                using (var reader = new StreamReader(stream))
-                {
-                    // add the contents of clr.py to the module
-                    string clr_py = reader.ReadToEnd();
-                    Exec(clr_py, module_globals, locals.Handle);
-                }
+                    Console.WriteLine("PythonEngine.Initialize(): clr GetManifestResourceStream...");
+                    Assembly assembly = Assembly.GetExecutingAssembly();
+                    using (Stream stream = assembly.GetManifestResourceStream("clr.py"))
+                    using (var reader = new StreamReader(stream))
+                    {
+                        // add the contents of clr.py to the module
+                        string clr_py = reader.ReadToEnd();
+                        Exec(clr_py, module_globals, locals.Handle);
+                    }
 
                 // add the imported module to the clr module, and copy the API functions
                 // and decorators into the main clr module.
@@ -519,7 +521,7 @@ namespace Python.Runtime
         /// Interrupts the execution of a thread.
         /// </summary>
         /// <param name="pythonThreadID">The Python thread ID.</param>
-        /// <returns>The number of thread states modified; this is normally one, but will be zero if the thread id isn’t found.</returns>
+        /// <returns>The number of thread states modified; this is normally one, but will be zero if the thread id isn�t found.</returns>
         public static int Interrupt(ulong pythonThreadID)
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
