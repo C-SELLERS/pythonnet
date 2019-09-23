@@ -134,7 +134,7 @@ namespace Python.Runtime
             }
             string name = self.type.Value.FullName;
             var doc = "";
-            foreach (MethodBase t in methods)
+            foreach (var t in methods)
             {
                 if (doc.Length > 0)
                 {

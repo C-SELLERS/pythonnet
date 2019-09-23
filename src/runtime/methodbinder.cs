@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Collections.Generic;
@@ -47,7 +48,9 @@ namespace Python.Runtime
 
         internal void AddMethod(MethodBase m)
         {
-            list.Add(m);
+            // we added a new method so we have to re sort the method list
+            init = false;
+            list.Add(new MethodInformation(m, m.GetParameters()));
         }
 
         /// <summary>
@@ -179,7 +182,7 @@ namespace Python.Runtime
         /// is arranged in order of precedence (done lazily to avoid doing it
         /// at all for methods that are never called).
         /// </summary>
-        internal MethodBase[] GetMethods()
+        internal List<MethodInformation> GetMethods()
         {
             if (!init)
             {
@@ -188,7 +191,7 @@ namespace Python.Runtime
                 methods = (from method in list where method.Valid select method.Value).ToArray();
                 init = true;
             }
-            return methods;
+            return list;
         }
 
         /// <summary>
@@ -411,8 +414,11 @@ namespace Python.Runtime
             var mismatchedMethods = new List<MismatchedMethod>();
 
             // TODO: Clean up
-            foreach (MethodBase mi in _methods)
+            foreach (var methodInformation in methods)
             {
+                var mi = methodInformation.MethodBase;
+                var pi = methodInformation.ParameterInfo;
+
                 if (mi.IsGenericMethod)
                 {
                     isGeneric = true;
@@ -1019,8 +1025,27 @@ namespace Python.Runtime
 
             return Converter.ToPython(result, mi.ReturnType);
         }
-    }
 
+        /// <summary>
+        /// Utility class to store the information about a <see cref="MethodBase"/>
+        /// </summary>
+        internal class MethodInformation
+        {
+            public MethodBase MethodBase { get; }
+
+            public ParameterInfo[] ParameterInfo { get; }
+
+            public MethodInformation(MethodBase methodBase, ParameterInfo[] parameterInfo)
+            {
+                MethodBase = methodBase;
+                ParameterInfo = parameterInfo;
+            }
+
+            public override string ToString()
+            {
+                return MethodBase.ToString();
+            }
+        }
 
     /// <summary>
     /// Utility class to sort method info by parameter type precedence.
