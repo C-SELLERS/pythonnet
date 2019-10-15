@@ -193,17 +193,17 @@ class GMT(tzinfo):
 
             if (value is IList && !(value is INotifyPropertyChanged) && value.GetType().IsGenericType)
             {
-                using (var resultlist = new PyList())
+                using (var resultList = new PyList())
                 {
-                    foreach (object o in (IEnumerable)value)
+                    for (var i = 0; i < list.Count; i++)
                     {
-                        using (var p = new PyObject(ToPython(o, o?.GetType())))
+                        using (var p = list[i].ToPython())
                         {
-                            resultlist.Append(p);
+                            resultList.Append(p);
                         }
                     }
-                    Runtime.XIncref(resultlist.Handle);
-                    return resultlist.Handle;
+                    Runtime.XIncref(resultList.Handle);
+                    return resultList.Handle;
                 }
             }
 
@@ -420,6 +420,15 @@ class GMT(tzinfo):
                 Runtime.XIncref(value); // PyObject() assumes ownership
                 result = new PyObject(value);
                 return true;
+            }
+
+            if(obType.IsGenericType && Runtime.PyObject_TYPE(value) == Runtime.PyListType)
+            {
+                var typeDefinition = obType.GetGenericTypeDefinition();
+                if (typeDefinition == typeof(List<>))
+                {
+                    return ToList(value, obType, out result, setError);
+                }
             }
 
             // Common case: if the Python value is a wrapped managed object
@@ -965,7 +974,6 @@ class GMT(tzinfo):
             Exceptions.RaiseTypeError($"Cannot convert {src} to {target}");
         }
 
-
         /// <summary>
         /// Convert a Python value to a correctly typed managed array instance.
         /// The Python value must support the Python iterator protocol or and the
@@ -1041,10 +1049,8 @@ class GMT(tzinfo):
             Array items = Array.CreateInstance(elementType, list.Count);
             list.CopyTo(items, 0);
 
-            result = items;
             return true;
         }
-
 
         /// <summary>
         /// Convert a Python value to a correctly typed managed enum instance.
