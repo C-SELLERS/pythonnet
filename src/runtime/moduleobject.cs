@@ -71,9 +71,8 @@ namespace Python.Runtime
         /// </summary>
         public ManagedType GetAttribute(string name, bool guess)
         {
-            ManagedType cached = null;
-            cache.TryGetValue(name, out cached);
-            if (cached != null)
+            ManagedType cached;
+            if (cache.TryGetValue(name, out cached))
             {
                 return cached;
             }
@@ -81,16 +80,6 @@ namespace Python.Runtime
             ModuleObject m;
             ClassBase c;
             Type type;
-
-            //if (AssemblyManager.IsValidNamespace(name))
-            //{
-            //    IntPtr py_mod_name = Runtime.PyString_FromString(name);
-            //    IntPtr modules = Runtime.PyImport_GetModuleDict();
-            //    IntPtr module = Runtime.PyDict_GetItem(modules, py_mod_name);
-            //    if (module != IntPtr.Zero)
-            //        return (ManagedType)this;
-            //    return null;
-            //}
 
             string qname = _namespace == string.Empty
                 ? name
@@ -169,14 +158,9 @@ namespace Python.Runtime
         /// </summary>
         public void LoadNames()
         {
-            ManagedType m = null;
-            foreach (string name in AssemblyManager.GetNames(_namespace))
+            foreach (var name in AssemblyManager.GetNames(_namespace))
             {
-                cache.TryGetValue(name, out m);
-                if (m == null)
-                {
-                    ManagedType attr = GetAttribute(name, true);
-                }
+                var attr = GetAttribute(name, true);
             }
         }
 

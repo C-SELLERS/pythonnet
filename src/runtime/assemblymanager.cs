@@ -1,11 +1,11 @@
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Python.Runtime
 {
@@ -32,10 +32,7 @@ namespace Python.Runtime
 
         // updated only under GIL?
         private static Dictionary<string, int> probed;
-
-        // modified from event handlers below, potentially triggered from different .NET threads
-        private static ConcurrentQueue<Assembly> assemblies;
-        internal static List<string> pypath;
+        private static List<string> pypath;
 
         private AssemblyManager()
         {
@@ -48,33 +45,41 @@ namespace Python.Runtime
         /// </summary>
         internal static void Initialize()
         {
-            namespaces = new ConcurrentDictionary<string, ConcurrentDictionary<Assembly, string>>();
+            namespaces = new ConcurrentDictionary<string, ConcurrentDictionary<Assembly, byte>>();
+            assembliesNamesCache = new ConcurrentDictionary<string, Assembly>();
+            lookupTypeCache = new ConcurrentDictionary<string, Type>();
             probed = new Dictionary<string, int>(32);
-            //generics = new Dictionary<string, Dictionary<string, string>>();
             assemblies = new ConcurrentQueue<Assembly>();
             pypath = new List<string>(16);
 
             AppDomain domain = AppDomain.CurrentDomain;
 
-            lhandler = new AssemblyLoadEventHandler(AssemblyLoadHandler);
-            domain.AssemblyLoad += lhandler;
+            domain.AssemblyLoad += AssemblyLoadHandler;
+            domain.AssemblyResolve += ResolveHandler;
 
-            rhandler = new ResolveEventHandler(ResolveHandler);
-            domain.AssemblyResolve += rhandler;
-
-            Assembly[] items = domain.GetAssemblies();
-            foreach (Assembly a in items)
+            foreach (var assembly in domain.GetAssemblies())
             {
                 try
                 {
-                    ScanAssembly(a);
-                    assemblies.Enqueue(a);
+                    LaunchAssemblyLoader(assembly);
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine("Error scanning assembly {0}. {1}", a, ex);
+                    Debug.WriteLine("Error scanning assembly {0}. {1}", assembly, ex);
                 }
             }
+
+            var safeCount = 0;
+            // lets wait until all assemblies are loaded
+            do
+            {
+                if (safeCount++ > 200)
+                {
+                    throw new TimeoutException("Timeout while waiting for assemblies to load");
+                }
+
+                Thread.Sleep(50);
+            } while (pendingAssemblies > 0);
         }
 
 
@@ -84,8 +89,8 @@ namespace Python.Runtime
         internal static void Shutdown()
         {
             AppDomain domain = AppDomain.CurrentDomain;
-            domain.AssemblyLoad -= lhandler;
-            domain.AssemblyResolve -= rhandler;
+            domain.AssemblyLoad -= AssemblyLoadHandler;
+            domain.AssemblyResolve -= ResolveHandler;
         }
 
 
@@ -96,13 +101,41 @@ namespace Python.Runtime
         /// so that we can know about assemblies that get loaded after the
         /// Python runtime is initialized.
         /// </summary>
+        /// <remarks>Scanning assemblies here caused internal hangs when calling
+        /// <see cref="Assembly.GetTypes"/></remarks>
         private static void AssemblyLoadHandler(object ob, AssemblyLoadEventArgs args)
         {
             Assembly assembly = args.LoadedAssembly;
-            assemblies.Enqueue(assembly);
-            ScanAssembly(assembly);
+            LaunchAssemblyLoader(assembly);
         }
 
+        /// <summary>
+        /// Launches a new task that will load the provided assembly
+        /// </summary>
+        private static void LaunchAssemblyLoader(Assembly assembly)
+        {
+            if (assembly != null)
+            {
+                Interlocked.Increment(ref pendingAssemblies);
+                Task.Factory.StartNew(() =>
+                {
+                    try
+                    {
+                        if (assembliesNamesCache.TryAdd(assembly.GetName().Name, assembly))
+                        {
+                            assemblies.Enqueue(assembly);
+                            ScanAssembly(assembly);
+                        }
+                    }
+                    catch
+                    {
+                        // pass
+                    }
+
+                    Interlocked.Decrement(ref pendingAssemblies);
+                });
+            }
+        }
 
         /// <summary>
         /// Event handler for assembly resolve events. This is needed because
@@ -114,12 +147,12 @@ namespace Python.Runtime
         private static Assembly ResolveHandler(object ob, ResolveEventArgs args)
         {
             string name = args.Name.ToLower();
-            foreach (Assembly a in assemblies)
+            foreach (var assembly in assemblies)
             {
-                string full = a.FullName.ToLower();
+                var full = assembly.FullName.ToLower();
                 if (full.StartsWith(name))
                 {
-                    return a;
+                    return assembly;
                 }
             }
             return LoadAssemblyPath(args.Name);
@@ -145,18 +178,19 @@ namespace Python.Runtime
             {
                 pypath.Clear();
                 probed.Clear();
+                // add first the current path
+                pypath.Add("");
                 for (var i = 0; i < count; i++)
                 {
                     BorrowedReference item = Runtime.PyList_GetItem(list, i);
                     string path = Runtime.GetManagedString(item);
                     if (path != null)
                     {
-                        pypath.Add(path);
+                        pypath.Add(path == string.Empty ? path : path + sep);
                     }
                 }
             }
         }
-
 
         /// <summary>
         /// Given an assembly name, try to find this assembly file using the
@@ -165,30 +199,17 @@ namespace Python.Runtime
         /// </summary>
         public static string FindAssembly(string name)
         {
-            char sep = Path.DirectorySeparatorChar;
-
-            foreach (string head in pypath)
+            foreach (var head in pypath)
             {
-                string path;
-                if (head == null || head.Length == 0)
+                var dll = $"{head}{name}.dll";
+                if (File.Exists(dll))
                 {
-                    path = name;
+                    return dll;
                 }
-                else
+                var executable = $"{head}{name}.exe";
+                if (File.Exists(executable))
                 {
-                    path = head + sep + name;
-                }
-
-                string temp = path + ".dll";
-                if (File.Exists(temp))
-                {
-                    return temp;
-                }
-
-                temp = path + ".exe";
-                if (File.Exists(temp))
-                {
-                    return temp;
+                    return executable;
                 }
             }
             return null;
@@ -244,15 +265,65 @@ namespace Python.Runtime
         /// </summary>
         public static Assembly FindLoadedAssembly(string name)
         {
-            foreach (Assembly a in assemblies)
+            Assembly result;
+            return assembliesNamesCache.TryGetValue(name, out result) ? result : null;
+        }
+
+        /// <summary>
+        /// Given a qualified name of the form A.B.C.D, attempt to load
+        /// an assembly named after each of A.B.C.D, A.B.C, A.B, A. This
+        /// will only actually probe for the assembly once for each unique
+        /// namespace. Returns true if any assemblies were loaded.
+        /// </summary>
+        /// <remarks>
+        /// TODO item 3 "* Deprecate implicit loading of assemblies":
+        /// Set the fromFile flag if the name of the loaded assembly matches
+        /// the fully qualified name that was requested if the framework
+        /// actually loads an assembly.
+        /// Call ONLY for namespaces that HAVE NOT been cached yet.
+        /// </remarks>
+        public static bool LoadImplicit(string name, bool warn = true)
+        {
+            string[] names = name.Split('.');
+            var loaded = false;
+            var s = "";
+            Assembly lastAssembly = null;
+            HashSet<Assembly> assembliesSet = null;
+            for (var i = 0; i < names.Length; i++)
             {
-                if (a.GetName().Name == name)
+                s = i == 0 ? names[0] : s + "." + names[i];
+                if (!probed.ContainsKey(s))
                 {
-                    return a;
+                    if (assembliesSet == null)
+                    {
+                        assembliesSet = new HashSet<Assembly>(AppDomain.CurrentDomain.GetAssemblies());
+                    }
+                    Assembly a = FindLoadedAssembly(s);
+                    if (a == null)
+                    {
+                        a = LoadAssemblyPath(s);
+                    }
+                    if (a != null && !assembliesSet.Contains(a))
+                    {
+                        loaded = true;
+                        lastAssembly = a;
+                    }
+                    probed[s] = 1;
                 }
             }
-            return null;
+
+            // Deprecation warning
+            if (warn && loaded)
+            {
+                string location = Path.GetFileNameWithoutExtension(lastAssembly.Location);
+                string deprWarning = "The module was found, but not in a referenced namespace.\n" +
+                                     $"Implicit loading is deprecated. Please use clr.AddReference('{location}').";
+                Exceptions.deprecation(deprWarning);
+            }
+
+            return loaded;
         }
+
 
         /// <summary>
         /// Scans an assembly for exported namespaces, adding them to the
@@ -270,12 +341,6 @@ namespace Python.Runtime
             // gather a list of all of the namespaces contributed to by
             // the assembly.
 
-            // skip this assembly, it causes 'GetTypes' call to hang
-            if (assembly.FullName.StartsWith("System.Windows.Forms"))
-            {
-                return;
-            }
-
             Type[] types = assembly.GetTypes();
             foreach (Type t in types)
             {
@@ -287,13 +352,13 @@ namespace Python.Runtime
                     for (var n = 0; n < names.Length; n++)
                     {
                         s = n == 0 ? names[0] : s + "." + names[n];
-                        namespaces.TryAdd(s, new ConcurrentDictionary<Assembly, string>());
+                        namespaces.TryAdd(s, new ConcurrentDictionary<Assembly, byte>());
                     }
                 }
 
                 if (ns != null)
                 {
-                    namespaces[ns].TryAdd(assembly, string.Empty);
+                    namespaces[ns].TryAdd(assembly, 1);
                 }
 
                 if (ns != null && t.IsGenericTypeDefinition)
