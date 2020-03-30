@@ -224,9 +224,9 @@ namespace Python.Runtime
                 impl = new ArrayObject(type);
             }
 
-            else if (type.IsDictionary())
+            else if (type.IsKeyValuePairEnumerable())
             {
-                impl = new DictionaryObject(type);
+                impl = new KeyValuePairEnumerableObject(type);
             }
 
             else if (type.IsInterface)
