@@ -540,9 +540,14 @@ namespace Python.Runtime
 
     public class PyScopeManager
     {
-        public readonly static PyScopeManager Global = new PyScopeManager();
+        public static PyScopeManager Global = new PyScopeManager();
 
         private Dictionary<string, PyScope> NamedScopes = new Dictionary<string, PyScope>();
+
+        internal static void Reset()
+        {
+            Global = new PyScopeManager();
+        }
 
         internal PyScope NewScope(string name)
         {

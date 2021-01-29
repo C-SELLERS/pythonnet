@@ -33,6 +33,12 @@ namespace Python.Runtime
             moduleBuilders = new Dictionary<Tuple<string, string>, ModuleBuilder>();
         }
 
+        public static void Reset()
+        {
+            assemblyBuilders = new Dictionary<string, AssemblyBuilder>();
+            moduleBuilders = new Dictionary<Tuple<string, string>, ModuleBuilder>();
+        }
+
         internal ClassDerivedObject(Type tp) : base(tp)
         {
         }

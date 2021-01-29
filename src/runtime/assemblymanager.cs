@@ -18,22 +18,15 @@ namespace Python.Runtime
     {
         // modified from event handlers below, potentially triggered from different .NET threads
         // therefore this should be a ConcurrentDictionary
-        //
-        // WARNING: Dangerous if cross-app domain usage is ever supported
-        //    Reusing the dictionary with assemblies accross multiple initializations is problematic.
-        //    Loading happens from CurrentDomain (see line 53). And if the first call is from AppDomain that is later unloaded,
-        //    than it can end up referring to assemblies that are already unloaded (default behavior after unload appDomain -
-        //     unless LoaderOptimization.MultiDomain is used);
-        //    So for multidomain support it is better to have the dict. recreated for each app-domain initialization
-        private static ConcurrentDictionary<string, ConcurrentDictionary<Assembly, string>> namespaces =
-            new ConcurrentDictionary<string, ConcurrentDictionary<Assembly, string>>();
-        //private static Dictionary<string, Dictionary<string, string>> generics;
-        private static AssemblyLoadEventHandler lhandler;
-        private static ResolveEventHandler rhandler;
+        private static ConcurrentDictionary<string, ConcurrentDictionary<Assembly, byte>> namespaces;
+        private static ConcurrentDictionary<string, Assembly> assembliesNamesCache;
+        private static ConcurrentDictionary<string, Type> lookupTypeCache;
+        private static ConcurrentQueue<Assembly> assemblies;
+        private static int pendingAssemblies;
 
         // updated only under GIL?
-        private static Dictionary<string, int> probed;
-        private static List<string> pypath;
+        private static Dictionary<string, int> probed = new Dictionary<string, int>(32);
+        internal static List<string> pypath;
         private static Dictionary<string, HashSet<string>> filesInPath;
 
         private AssemblyManager()
@@ -177,6 +170,8 @@ namespace Python.Runtime
         {
             BorrowedReference list = Runtime.PySys_GetObject("path");
             var count = Runtime.PyList_Size(list);
+            var sep = Path.DirectorySeparatorChar;
+
             if (count != pypath.Count)
             {
                 pypath.Clear();
@@ -382,8 +377,7 @@ namespace Python.Runtime
             // gather a list of all of the namespaces contributed to by
             // the assembly.
 
-            Type[] types = assembly.GetTypes();
-            foreach (Type t in types)
+            foreach (Type t in GetTypes(assembly))
             {
                 string ns = t.Namespace ?? "";
                 if (!namespaces.ContainsKey(ns))
@@ -460,7 +454,7 @@ namespace Python.Runtime
                     Type[] types = a.GetTypes();
                     foreach (Type t in types)
                     {
-                        if ((t.Namespace ?? "") == nsname)
+                        if ((t.Namespace ?? "") == nsname && !t.IsNested)
                         {
                             names.Add(t.Name);
                         }

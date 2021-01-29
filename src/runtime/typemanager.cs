@@ -625,8 +625,7 @@ namespace Python.Runtime
         /// </summary>
         internal static void InitializeSlots(IntPtr type, Type impl, SlotsHolder slotsHolder = null)
         {
-            var seen = new Hashtable(8);
-            Type offsetType = typeof(TypeOffset);
+            var seen = new HashSet<string>();
 
             while (impl != null)
             {
@@ -640,17 +639,27 @@ namespace Python.Runtime
                         continue;
                     }
 
-                    if (seen[name] != null)
+                    if (seen.Contains(name))
                     {
                         continue;
                     }
 
                     InitializeSlot(type, Interop.GetThunk(method), name, slotsHolder);
 
-                    seen[name] = 1;
+                    seen.Add(name);
                 }
 
                 impl = impl.BaseType;
+            }
+
+            foreach (string slot in _requiredSlots)
+            {
+                if (seen.Contains(slot))
+                {
+                    continue;
+                }
+                var offset = ManagedDataOffsets.GetSlotOffset(slot);
+                Marshal.WriteIntPtr(type, offset, SlotsHolder.GetDefaultSlot(offset));
             }
         }
 

@@ -15,10 +15,6 @@ namespace Python.Runtime
         /// </summary>
         private static Dictionary<string, Dictionary<string, List<string>>> mapping;
 
-        private GenericUtil()
-        {
-        }
-
         static GenericUtil()
         {
             mapping = new Dictionary<string, Dictionary<string, List<string>>>();
@@ -42,20 +38,23 @@ namespace Python.Runtime
                     return;
                 }
 
-            Dictionary<string, List<string>> nsmap;
-            if (!mapping.TryGetValue(t.Namespace, out nsmap))
-            {
-                nsmap = new Dictionary<string, List<string>>();
-                mapping[t.Namespace] = nsmap;
+                Dictionary<string, List<string>> nsmap;
+                if (!mapping.TryGetValue(t.Namespace, out nsmap))
+                {
+                    nsmap = new Dictionary<string, List<string>>();
+                    mapping[t.Namespace] = nsmap;
+                }
+
+                string basename = GetBasename(t.Name);
+                List<string> gnames;
+                if (!nsmap.TryGetValue(basename, out gnames))
+                {
+                    gnames = new List<string>();
+                    nsmap[basename] = gnames;
+                }
+
+                gnames.Add(t.Name);
             }
-            string basename = GetBasename(t.Name);
-            List<string> gnames;
-            if (!nsmap.TryGetValue(basename, out gnames))
-            {
-                gnames = new List<string>();
-                nsmap[basename] = gnames;
-            }
-            gnames.Add(t.Name);
         }
 
         /// <summary>
@@ -84,23 +83,22 @@ namespace Python.Runtime
             return GenericByName(t.Namespace, t.Name, paramCount);
         }
 
-            /// <summary>
-            /// Finds a generic type in the given namespace with the given name and number of generic parameters.
-            /// </summary>
-            public static Type GenericByName(string ns, string name, int paramCount)
+        /// <summary>
+        /// Finds a generic type in the given namespace with the given name and number of generic parameters.
+        /// </summary>
+        public static Type GenericByName(string ns, string name, int paramCount)
+        {
+            foreach (Type t in GenericsByName(ns, name))
             {
-                foreach (Type t in GenericsByName(ns, name))
+                if (t.GetGenericArguments().Length == paramCount)
                 {
-                    if (t.GetGenericArguments().Length == paramCount)
-                    {
-                        return t;
-                    }
+                    return t;
                 }
-                return null;
             }
+            return null;
+        }
 
-
-            public static List<Type> GenericsForType(Type t)
+        public static List<Type> GenericsForType(Type t)
         {
             return GenericsByName(t.Namespace, t.Name);
         }
@@ -127,17 +125,18 @@ namespace Python.Runtime
                     return null;
                 }
 
-            foreach (string name in names)
-            {
-                string qname = ns + "." + name;
-                Type o = AssemblyManager.LookupTypes(qname).FirstOrDefault();
-                if (o != null && o.GetGenericArguments().Length == paramCount)
+                var result = new List<Type>();
+                foreach (string name in names)
                 {
-                    return o;
+                    string qname = ns + "." + name;
+                    Type o = AssemblyManager.LookupType(qname);
+                    if (o != null)
+                    {
+                        result.Add(o);
+                    }
                 }
+                return result;
             }
-
-            return null;
         }
 
         /// <summary>

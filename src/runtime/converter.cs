@@ -1049,6 +1049,7 @@ class GMT(tzinfo):
             Array items = Array.CreateInstance(elementType, list.Count);
             list.CopyTo(items, 0);
 
+            result = items;
             return true;
         }
 
